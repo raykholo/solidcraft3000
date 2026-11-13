@@ -1,13 +1,24 @@
 name: Pages
 
-# Builds SolidCraft 3000 from the sc3000 branch of raykholo/solidcraft and publishes it to this repository's Pages.
+# Builds SolidCraft 3000 on the latest public SolidCraft release and publishes it to this repository's Pages.
+# Daily: when tangency-labs/solidcraft has a newer release than the live site, the SolidCraft 3000 commit (the tip of
+# raykholo/solidcraft's sc3000 branch) is cherry-picked onto that release, built and deployed. If it no longer applies,
+# the live site stays as it is and an issue here says so.
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 6 * * *"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild even if the live site already has the latest release"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  issues: write
   pages: write
   id-token: write
 
@@ -22,33 +33,74 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.release.outputs.skip }}
     timeout-minutes: 180
     steps:
+      - name: Find the latest SolidCraft release and the live site's
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view -R tangency-labs/solidcraft --json tagName -q .tagName)
+          live=$(curl -fsSL "https://raykholo.github.io/solidcraft3000/sc3000-release.txt" 2>/dev/null || true)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "latest $tag, live ${live:-none}"
+          if [ "$live" = "$tag" ] && [ "${{ github.event_name }}" = schedule ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$live" = "$tag" ] && [ "${{ inputs.force }}" != true ] && [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.release.outputs.skip != 'true'
         with:
-          repository: raykholo/solidcraft
-          ref: sc3000
+          repository: tangency-labs/solidcraft
+          ref: ${{ steps.release.outputs.tag }}
+          fetch-depth: 0
+      - name: Apply SolidCraft 3000 to the release
+        if: steps.release.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git fetch -q https://github.com/raykholo/solidcraft.git sc3000
+          git -c user.name=sc3000 -c user.email=sc3000@users.noreply.github.com cherry-pick FETCH_HEAD || {
+            git cherry-pick --abort || true
+            gh issue create -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" \
+              --body "The sc3000 commit no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+            exit 1
+          }
       - uses: dtolnay/rust-toolchain@1.99.1
+        if: steps.release.outputs.skip != 'true'
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: steps.release.outputs.skip != 'true'
       - name: Install trunk
+        if: steps.release.outputs.skip != 'true'
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -sSL "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Build the web app with SolidCraft 3000 on
+        if: steps.release.outputs.skip != 'true'
         working-directory: apps/solidcraft-web
         run: trunk build --release --features sc3000 --public-url ./
       - name: Add the parody note
-        run: bash packaging/sc3000-note.sh dist/web/index.html
+        if: steps.release.outputs.skip != 'true'
+        run: |
+          bash packaging/sc3000-note.sh dist/web/index.html
+          printf '%s' "${{ steps.release.outputs.tag }}" > dist/web/sc3000-release.txt
       - uses: actions/configure-pages@v5
+        if: steps.release.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.release.outputs.skip != 'true'
         with:
           path: dist/web
 
   deploy:
     needs: build
+    if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

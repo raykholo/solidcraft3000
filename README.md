@@ -7,5 +7,8 @@ update stuck at 99%, sessions that expire, sync conflicts and the odd outage. No
 no account, and the CAD underneath is the real [SolidCraft](https://github.com/tangency-labs/solidcraft), free and open
 source, running in your browser.
 
-The site is built from the `sc3000` branch of [raykholo/solidcraft](https://github.com/raykholo/solidcraft/tree/sc3000)
-(the default-off `sc3000` feature); `.github/workflows/pages.yml` here builds and publishes it.
+It follows SolidCraft's public releases: every day `.github/workflows/pages.yml` checks for a new
+[SolidCraft release](https://github.com/tangency-labs/solidcraft/releases), applies the SolidCraft 3000 change (the
+`sc3000` branch of [raykholo/solidcraft](https://github.com/raykholo/solidcraft/tree/sc3000), a default-off `sc3000`
+feature) on top of it, and rebuilds the site. The release it runs is in
+[sc3000-release.txt](https://raykholo.github.io/solidcraft3000/sc3000-release.txt).
