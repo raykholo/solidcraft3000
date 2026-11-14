@@ -91,6 +91,15 @@ jobs:
         run: |
           bash packaging/sc3000-note.sh dist/web/index.html
           printf '%s' "${{ steps.release.outputs.tag }}" > dist/web/sc3000-release.txt
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.release.outputs.skip != 'true'
+        with:
+          path: site-repo
+      - name: SolidCraft 3000's own title and link preview
+        if: steps.release.outputs.skip != 'true'
+        run: |
+          cp site-repo/site/og.png dist/web/og.png
+          python3 site-repo/site/preview.py dist/web/index.html
       - uses: actions/configure-pages@v5
         if: steps.release.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3
