@@ -82,9 +82,6 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         if: steps.release.outputs.skip != 'true'
-        with:
-          cache-on-failure: true
-          cache-workspace-crates: true
       - name: Test SolidCraft 3000 with the feature enabled
         if: steps.release.outputs.skip != 'true'
         run: cargo test --profile ci --locked -p solidcraft-web --features sc3000
