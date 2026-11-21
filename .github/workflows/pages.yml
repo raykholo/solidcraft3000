@@ -1,8 +1,8 @@
 name: Pages
 
 # Builds SolidCraft 3000 on the latest public SolidCraft release and publishes it to this repository's Pages.
-# Daily: when tangency-labs/solidcraft has a newer release than the live site, the SolidCraft 3000 commit (the tip of
-# raykholo/solidcraft's sc3000 branch) is cherry-picked onto that release, built and deployed. If it no longer applies,
+# Daily: when tangency-labs/solidcraft has a newer release than the live site, the SolidCraft 3000 commits (from the
+# release/branch merge-base to raykholo/solidcraft's sc3000 tip) are cherry-picked onto that release, built and deployed. If they no longer apply,
 # the live site stays as it is and an issue here says so.
 on:
   push:
@@ -15,6 +15,10 @@ on:
         description: "Rebuild even if the live site already has the latest release"
         type: boolean
         default: false
+      deploy:
+        description: "Deploy the build (disable to inspect the Pages artifact only)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -64,10 +68,12 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           git fetch -q https://github.com/raykholo/solidcraft.git sc3000
-          git -c user.name=sc3000 -c user.email=sc3000@users.noreply.github.com cherry-pick FETCH_HEAD || {
+          branch_tip=$(git rev-parse FETCH_HEAD)
+          base=$(git merge-base "$TAG" "$branch_tip")
+          git -c user.name=sc3000 -c user.email=sc3000@users.noreply.github.com cherry-pick "$base..$branch_tip" || {
             git cherry-pick --abort || true
             gh issue create -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" \
-              --body "The sc3000 commit no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+              --body "The sc3000 commit range $base..$branch_tip no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
             exit 1
           }
       - uses: dtolnay/rust-toolchain@1.99.1
@@ -76,6 +82,9 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         if: steps.release.outputs.skip != 'true'
+      - name: Test SolidCraft 3000 with the feature enabled
+        if: steps.release.outputs.skip != 'true'
+        run: cargo test --profile ci --locked -p solidcraft-web --features sc3000
       - name: Install trunk
         if: steps.release.outputs.skip != 'true'
         run: |
@@ -109,7 +118,7 @@ jobs:
 
   deploy:
     needs: build
-    if: needs.build.outputs.skip != 'true'
+    if: needs.build.outputs.skip != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
     runs-on: ubuntu-latest
     environment:
       name: github-pages

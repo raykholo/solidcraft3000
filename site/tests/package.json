@@ -1,0 +1,13 @@
+{
+  "name": "solidcraft3000-browser-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "phone": "node phone.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "pngjs": "7.0.0",
+    "tesseract.js": "7.0.0"
+  }
+}
