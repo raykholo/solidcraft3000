@@ -1,0 +1,63 @@
+[
+  {
+    "name": "dark",
+    "action": "verified-any-six-digits-once",
+    "audit": {
+      "armed": true,
+      "network": 0,
+      "storage": 2,
+      "logs": 0,
+      "inputWrites": 0,
+      "storageEvents": [
+        {
+          "api": "Storage.setItem",
+          "key": "egui_memory_ron"
+        },
+        {
+          "api": "Storage.setItem",
+          "key": "solidcraft.prefs"
+        }
+      ]
+    },
+    "requests": 0
+  },
+  {
+    "name": "light",
+    "action": "skipped-and-returned-after-three-minutes",
+    "audit": {
+      "armed": true,
+      "network": 0,
+      "storage": 2,
+      "logs": 0,
+      "inputWrites": 0,
+      "storageEvents": [
+        {
+          "api": "Storage.setItem",
+          "key": "egui_memory_ron"
+        },
+        {
+          "api": "Storage.setItem",
+          "key": "solidcraft.prefs"
+        }
+      ]
+    },
+    "requests": 0
+  },
+  {
+    "name": "dark-private",
+    "action": "verified-any-six-digits-once",
+    "audit": {
+      "armed": true,
+      "network": 0,
+      "storage": 0,
+      "logs": 0,
+      "inputWrites": 0,
+      "storageEvents": []
+    },
+    "requests": 0
+  },
+  {
+    "name": "dark-small",
+    "smallWindowFits": true
+  }
+]
