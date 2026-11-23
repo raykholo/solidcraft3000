@@ -7,6 +7,9 @@ name: Pages
 on:
   push:
     branches: [main]
+  # A pull request builds and checks everything (tests, the browser check) but never deploys or opens an issue.
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
@@ -32,7 +35,7 @@ permissions:
 
 # Inspect-only runs (deploy off) get their own group, so the daily run neither cancels them nor is cancelled by them.
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && !inputs.deploy && format('pages-inspect-{0}', github.run_id) || 'pages' }}
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || github.event_name == 'workflow_dispatch' && !inputs.deploy && format('pages-inspect-{0}', github.run_id) || 'pages' }}
   cancel-in-progress: true
 
 env:
@@ -82,8 +85,8 @@ jobs:
             run="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             body="The sc3000 commit range $base..$branch_tip no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: $run"
             open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"SolidCraft 3000 does not apply\" in:title" --json number -q '.[0].number')
-            if [ "$BRANCH" != sc3000 ]; then
-              echo "trying $BRANCH, not sc3000: no issue"
+            if [ "$BRANCH" != sc3000 ] || [ "${{ github.event_name }}" = pull_request ]; then
+              echo "trying $BRANCH from ${{ github.event_name }}: no issue"
             elif [ -n "$open" ]; then
               gh issue edit "$open" -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" || true
               gh issue comment "$open" -R "$GITHUB_REPOSITORY" --body "Still failing, now on $TAG. $body" || true
@@ -158,7 +161,7 @@ jobs:
 
   deploy:
     needs: build
-    if: needs.build.outputs.skip != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
+    if: needs.build.outputs.skip != 'true' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
