@@ -101,7 +101,10 @@ jobs:
         if: steps.release.outputs.skip != 'true'
       - name: Test SolidCraft 3000 with the feature enabled
         if: steps.release.outputs.skip != 'true'
-        run: cargo test --profile ci --locked -p solidcraft-web --features sc3000
+        run: |
+          cargo test --profile ci --locked -p solidcraft-web --features sc3000
+          # The jokes that live in the UI crate: usage statistics, Community Support.
+          cargo test --profile ci --locked -p solidcraft-ui-egui --features sc3000 --lib sc3000
       - name: Install trunk
         if: steps.release.outputs.skip != 'true'
         run: |
@@ -126,6 +129,26 @@ jobs:
         run: |
           cp site-repo/site/og.png dist/web/og.png
           python3 site-repo/site/preview.py dist/web/index.html
+      - uses: actions/setup-node@v4
+        if: steps.release.outputs.skip != 'true'
+        with:
+          node-version: 22
+      - name: Community Support opens in the page and nothing leaves it (EN and DE)
+        if: steps.release.outputs.skip != 'true'
+        working-directory: site-repo/site/tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8765 --directory "$GITHUB_WORKSPACE/dist/web" > /dev/null 2>&1 &
+          server=$!
+          npm run support -- http://127.0.0.1:8765/ "$RUNNER_TEMP/support-evidence"
+          kill "$server"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.release.outputs.skip != 'true'
+        with:
+          name: support-evidence
+          path: ${{ runner.temp }}/support-evidence
+          if-no-files-found: ignore
       - uses: actions/configure-pages@v5
         if: steps.release.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3

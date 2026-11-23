@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "phone": "node phone.mjs"
+    "phone": "node phone.mjs",
+    "support": "node support.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
