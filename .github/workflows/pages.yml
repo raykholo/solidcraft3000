@@ -3,7 +3,7 @@ name: Pages
 # Builds SolidCraft 3000 on the latest public SolidCraft release and publishes it to this repository's Pages.
 # Daily: when tangency-labs/solidcraft has a newer release than the live site, the SolidCraft 3000 commits (from the
 # release/branch merge-base to raykholo/solidcraft's sc3000 tip) are cherry-picked onto that release, built and deployed. If they no longer apply,
-# the live site stays as it is and an issue here says so.
+# the live site stays as it is, the run fails red, and ONE issue here says so (refreshed, not duplicated, while it lasts).
 on:
   push:
     branches: [main]
@@ -19,6 +19,10 @@ on:
         description: "Deploy the build (disable to inspect the Pages artifact only)"
         type: boolean
         default: true
+      branch:
+        description: "raykholo/solidcraft branch to apply (try a rebased branch before it becomes sc3000)"
+        type: string
+        default: sc3000
 
 permissions:
   contents: read
@@ -26,8 +30,9 @@ permissions:
   pages: write
   id-token: write
 
+# Inspect-only runs (deploy off) get their own group, so the daily run neither cancels them nor is cancelled by them.
 concurrency:
-  group: pages
+  group: ${{ github.event_name == 'workflow_dispatch' && !inputs.deploy && format('pages-inspect-{0}', github.run_id) || 'pages' }}
   cancel-in-progress: true
 
 env:
@@ -66,14 +71,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.release.outputs.tag }}
+          BRANCH: ${{ inputs.branch || 'sc3000' }}
         run: |
-          git fetch -q https://github.com/raykholo/solidcraft.git sc3000
+          git fetch -q https://github.com/raykholo/solidcraft.git "${BRANCH:-sc3000}"
           branch_tip=$(git rev-parse FETCH_HEAD)
           base=$(git merge-base "$TAG" "$branch_tip")
           git -c user.name=sc3000 -c user.email=sc3000@users.noreply.github.com cherry-pick "$base..$branch_tip" || {
             git cherry-pick --abort || true
-            gh issue create -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" \
-              --body "The sc3000 commit range $base..$branch_tip no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" || true
+            # One issue for the whole outage: refresh the open one if there is one, else open it.
+            run="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            body="The sc3000 commit range $base..$branch_tip no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: $run"
+            open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"SolidCraft 3000 does not apply\" in:title" --json number -q '.[0].number')
+            if [ "$BRANCH" != sc3000 ]; then
+              echo "trying $BRANCH, not sc3000: no issue"
+            elif [ -n "$open" ]; then
+              gh issue edit "$open" -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" || true
+              gh issue comment "$open" -R "$GITHUB_REPOSITORY" --body "Still failing, now on $TAG. $body" || true
+            else
+              gh issue create -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" --body "$body" || true
+            fi
+            echo "::error title=SolidCraft 3000 does not apply to $TAG::rebase raykholo/solidcraft's sc3000 branch onto $TAG"
             exit 1
           }
       - uses: dtolnay/rust-toolchain@1.99.1
