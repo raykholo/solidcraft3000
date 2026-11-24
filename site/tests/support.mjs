@@ -118,9 +118,15 @@ async function session(locale) {
     await page.screenshot({ path: resolve(directory, `support-${locale}-2-chat.png`) });
     // The chat opens below the maintenance banner: its Dismiss still takes the click, and the chat stays.
     await click('sc3000:banner:dismiss');
-    await page.waitForTimeout(500);
-    const banner = await page.evaluate(() => window.solidcraft.request('ui.at', { handle: 'sc3000:banner:dismiss' }).then(point => point != null, () => false));
-    assert.equal(banner, false, 'The banner\'s Dismiss was covered by Community Support');
+    // A slow runner can take a few seconds to draw the frame after the click: wait for the banner to go.
+    const bannerShown = () => page.evaluate(() => window.solidcraft.request('ui.at', { handle: 'sc3000:banner:dismiss' }).then(point => point != null, () => false));
+    let banner = true;
+    for (let tries = 0; tries < 20 && banner; tries++) {
+      await page.waitForTimeout(500);
+      banner = await bannerShown();
+    }
+    if (banner) await page.screenshot({ path: resolve(directory, `support-${locale}-3-dismiss.png`) });
+    assert.equal(banner, false, `${locale}: the banner's Dismiss didn't take the click with Community Support open (support-${locale}-3-dismiss.png)`);
     await at('sc3000_support:input');
     const audit = await page.evaluate(() => ({ ...window.__supportAudit }));
     armed = false;
