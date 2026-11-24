@@ -98,6 +98,12 @@ async function session(locale) {
     await say(locale.startsWith('de') ? 'Meine Vollrundung schlägt fehl' : 'My fillet fails');
     await say(locale.startsWith('de') ? 'Es gibt keine Cloud' : 'There is no cloud');
     await page.screenshot({ path: resolve(directory, `support-${locale}-2-chat.png`) });
+    // The chat opens below the maintenance banner: its Dismiss still takes the click, and the chat stays.
+    await click('sc3000:banner:dismiss');
+    await page.waitForTimeout(500);
+    const banner = await page.evaluate(() => window.solidcraft.request('ui.at', { handle: 'sc3000:banner:dismiss' }).then(point => point != null, () => false));
+    assert.equal(banner, false, 'The banner\'s Dismiss was covered by Community Support');
+    await at('sc3000_support:input');
     const audit = await page.evaluate(() => ({ ...window.__supportAudit }));
     armed = false;
     const result = { locale, network: audit.network, opened: audit.opened, requests, outside, errors };
