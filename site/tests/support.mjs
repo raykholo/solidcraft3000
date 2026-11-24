@@ -92,6 +92,9 @@ async function session(locale) {
     };
     const click = async handle => {
       const [x, y] = await at(handle);
+      // Hover first, as the app's own tests do: a button takes a click only once it saw the pointer.
+      await call('ui.move', { x, y });
+      await page.waitForTimeout(300);
       await call('ui.click', { x, y });
       await page.waitForTimeout(500);
     };
@@ -102,7 +105,9 @@ async function session(locale) {
     await page.evaluate(() => { window.__supportAudit.armed = true; });
     armed = true;
     await click('titlebar:discord');
-    await page.waitForTimeout(1000);
+    // A slow runner can take a few seconds to draw the chat: wait for its input.
+    const shown = handle => page.evaluate(h => window.solidcraft.request('ui.at', { handle: h }).then(point => point != null, () => false), handle);
+    for (let tries = 0; tries < 20 && !(await shown('sc3000_support:input')); tries++) await page.waitForTimeout(500);
     await at('sc3000_support:input');
     await at('sc3000_support:real_discord');
     await page.screenshot({ path: resolve(directory, `support-${locale}-1-open.png`) });
@@ -119,7 +124,7 @@ async function session(locale) {
     // The chat opens below the maintenance banner: its Dismiss still takes the click, and the chat stays.
     await click('sc3000:banner:dismiss');
     // A slow runner can take a few seconds to draw the frame after the click: wait for the banner to go.
-    const bannerShown = () => page.evaluate(() => window.solidcraft.request('ui.at', { handle: 'sc3000:banner:dismiss' }).then(point => point != null, () => false));
+    const bannerShown = () => shown('sc3000:banner:dismiss');
     let banner = true;
     for (let tries = 0; tries < 20 && banner; tries++) {
       await page.waitForTimeout(500);
