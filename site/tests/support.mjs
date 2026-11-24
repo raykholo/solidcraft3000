@@ -7,6 +7,7 @@ import { chromium } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
+import { PNG } from 'pngjs';
 
 const [url, directory] = process.argv.slice(2);
 assert(url && directory, 'Pass the app URL and an evidence directory');
@@ -62,8 +63,24 @@ async function session(locale) {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(url);
-    await page.waitForFunction(() => window.solidcraft, null, { timeout: 120000 });
+    await page.waitForFunction(() => window.solidcraft, null, { timeout: 120000 }).catch(() => {
+      throw new Error(`the app never started (no window.solidcraft): ${errors.join(' | ') || 'no page error'}`);
+    });
     await page.waitForTimeout(8000);
+    // A release whose web app panics at start shows a blank page (tangency-labs/solidcraft#21584):
+    // the drawn window must have real content, not one flat color.
+    const notBlank = async when => {
+      const png = PNG.sync.read(await page.screenshot());
+      const counts = new Map();
+      for (let i = 0; i < png.data.length; i += 4 * 7) {
+        const key = (png.data[i] << 16) | (png.data[i + 1] << 8) | png.data[i + 2];
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      const samples = Math.ceil(png.data.length / (4 * 7));
+      const top = Math.max(...counts.values());
+      assert(counts.size >= 50 && top / samples < 0.9, `${locale}: the page is blank ${when} (${counts.size} colors, ${Math.round((100 * top) / samples)}% one color)`);
+    };
+    await notBlank('after loading');
     const call = async (method, params) => {
       const reply = await page.evaluate(([m, p]) => window.solidcraft.request(m, p).then(r => ({ ok: r }), e => ({ error: String(e) })), [method, params]);
       assert(!reply.error, `${method}: ${reply.error}`);
@@ -89,6 +106,7 @@ async function session(locale) {
     await at('sc3000_support:input');
     await at('sc3000_support:real_discord');
     await page.screenshot({ path: resolve(directory, `support-${locale}-1-open.png`) });
+    await notBlank('with Community Support open');
     const say = async text => {
       await click('sc3000_support:input');
       await call('ui.text', { text });

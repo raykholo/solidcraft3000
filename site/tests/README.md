@@ -11,7 +11,8 @@ The script captures full-window dark and light number/code screens and a 480×64
 
 ## Community Support (`support.mjs`, runs in the Pages workflow)
 
-`npm run support -- http://127.0.0.1:8765/ /path/to/evidence` opens the app in English and in German, clicks the title
+`npm run support -- http://127.0.0.1:8765/ /path/to/evidence` opens the app in English and in German, fails if the
+app never starts or the page is blank (one flat color, as when a release panics at start), clicks the title
 bar's Discord pill, checks that the in-page Community Support chat opened (its input and the real-Discord link are on
 screen), types two messages and waits for the bots, then clicks the maintenance banner's Dismiss with the chat still
 open (the chat sits below the banner, so the click reaches it). From the click on, every network API (fetch, XHR, sendBeacon,
