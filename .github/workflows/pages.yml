@@ -7,6 +7,9 @@ name: Pages
 on:
   push:
     branches: [main]
+  # A pull request builds and checks everything (tests, the browser check) but never deploys or opens an issue.
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
@@ -32,7 +35,7 @@ permissions:
 
 # Inspect-only runs (deploy off) get their own group, so the daily run neither cancels them nor is cancelled by them.
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && !inputs.deploy && format('pages-inspect-{0}', github.run_id) || 'pages' }}
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || github.event_name == 'workflow_dispatch' && !inputs.deploy && format('pages-inspect-{0}', github.run_id) || 'pages' }}
   cancel-in-progress: true
 
 env:
@@ -82,8 +85,8 @@ jobs:
             run="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             body="The sc3000 commit range $base..$branch_tip no longer cherry-picks cleanly onto SolidCraft $TAG; the live site stays on its previous release until the sc3000 branch is rebased. Run: $run"
             open=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"SolidCraft 3000 does not apply\" in:title" --json number -q '.[0].number')
-            if [ "$BRANCH" != sc3000 ]; then
-              echo "trying $BRANCH, not sc3000: no issue"
+            if [ "$BRANCH" != sc3000 ] || [ "${{ github.event_name }}" = pull_request ]; then
+              echo "trying $BRANCH from ${{ github.event_name }}: no issue"
             elif [ -n "$open" ]; then
               gh issue edit "$open" -R "$GITHUB_REPOSITORY" --title "SolidCraft 3000 does not apply to $TAG" || true
               gh issue comment "$open" -R "$GITHUB_REPOSITORY" --body "Still failing, now on $TAG. $body" || true
@@ -101,7 +104,10 @@ jobs:
         if: steps.release.outputs.skip != 'true'
       - name: Test SolidCraft 3000 with the feature enabled
         if: steps.release.outputs.skip != 'true'
-        run: cargo test --profile ci --locked -p solidcraft-web --features sc3000
+        run: |
+          cargo test --profile ci --locked -p solidcraft-web --features sc3000
+          # The jokes that live in the UI crate: usage statistics, Community Support.
+          cargo test --profile ci --locked -p solidcraft-ui-egui --features sc3000 --lib sc3000
       - name: Install trunk
         if: steps.release.outputs.skip != 'true'
         run: |
@@ -126,6 +132,26 @@ jobs:
         run: |
           cp site-repo/site/og.png dist/web/og.png
           python3 site-repo/site/preview.py dist/web/index.html
+      - uses: actions/setup-node@v4
+        if: steps.release.outputs.skip != 'true'
+        with:
+          node-version: 22
+      - name: Community Support opens in the page and nothing leaves it (EN and DE)
+        if: steps.release.outputs.skip != 'true'
+        working-directory: site-repo/site/tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8765 --directory "$GITHUB_WORKSPACE/dist/web" > /dev/null 2>&1 &
+          server=$!
+          npm run support -- http://127.0.0.1:8765/ "$RUNNER_TEMP/support-evidence"
+          kill "$server"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.release.outputs.skip != 'true'
+        with:
+          name: support-evidence
+          path: ${{ runner.temp }}/support-evidence
+          if-no-files-found: ignore
       - uses: actions/configure-pages@v5
         if: steps.release.outputs.skip != 'true'
       - uses: actions/upload-pages-artifact@v3
@@ -135,7 +161,7 @@ jobs:
 
   deploy:
     needs: build
-    if: needs.build.outputs.skip != 'true' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
+    if: needs.build.outputs.skip != 'true' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.deploy)
     runs-on: ubuntu-latest
     environment:
       name: github-pages
