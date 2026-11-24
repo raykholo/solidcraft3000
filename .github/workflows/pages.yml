@@ -40,6 +40,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # SolidCraft releases not to build: their web app is a blank page. 0.48.0 and 0.48.1 panic on
+  # std::time::Instant in wasm (https://github.com/tangency-labs/solidcraft/issues/21584). The
+  # newest release not listed here is built instead. Remove a tag once a fixed release ships.
+  HELD_RELEASES: "v0.48.0 v0.48.1"
   TRUNK_VERSION: v0.21.14
 
 jobs:
@@ -54,7 +58,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh release view -R tangency-labs/solidcraft --json tagName -q .tagName)
+          tag=""
+          for candidate in $(gh release list -R tangency-labs/solidcraft --exclude-drafts --exclude-pre-releases --limit 30 --json tagName -q '.[].tagName'); do
+            case " $HELD_RELEASES " in
+              *" $candidate "*) echo "held: $candidate" ;;
+              *) tag=$candidate; break ;;
+            esac
+          done
+          [ -n "$tag" ] || { echo "::error::every recent SolidCraft release is held"; exit 1; }
           live=$(curl -fsSL "https://raykholo.github.io/solidcraft3000/sc3000-release.txt" 2>/dev/null || true)
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "latest $tag, live ${live:-none}"
