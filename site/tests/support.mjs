@@ -144,7 +144,12 @@ async function session(locale) {
     assert.deepEqual(errors, [], 'Browser errors');
     // The parody line's only way out: SolidCraft's own Discord, opened (and still blocked here) only on a click.
     await click('sc3000_support:real_discord');
-    const opened = await page.evaluate(() => [...window.__supportAudit.opened]);
+    // A slow runner can take a few seconds to draw the frame that opens it: wait for the request.
+    let opened = [];
+    for (let tries = 0; tries < 20 && opened.length === 0; tries++) {
+      await page.waitForTimeout(500);
+      opened = await page.evaluate(() => [...window.__supportAudit.opened]);
+    }
     assert.deepEqual(opened, ['https://discord.gg/FtU4NQNVDH'], `${locale}: the real-support link must open SolidCraft's Discord`);
     return result;
   } finally {
