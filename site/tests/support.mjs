@@ -142,6 +142,10 @@ async function session(locale) {
     assert.deepEqual(requests, [], 'Community Support made a browser request');
     assert.deepEqual(outside, [], 'The page loaded something from outside its own site');
     assert.deepEqual(errors, [], 'Browser errors');
+    // The parody line's only way out: SolidCraft's own Discord, opened (and still blocked here) only on a click.
+    await click('sc3000_support:real_discord');
+    const opened = await page.evaluate(() => [...window.__supportAudit.opened]);
+    assert.deepEqual(opened, ['https://discord.gg/FtU4NQNVDH'], `${locale}: the real-support link must open SolidCraft's Discord`);
     return result;
   } finally {
     await browser.close();
