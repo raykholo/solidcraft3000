@@ -98,6 +98,8 @@ async function session(locale) {
       await call('ui.click', { x, y });
       await page.waitForTimeout(500);
     };
+    // Our screenshots hide the Donate pill (Ray). The Discord pill stays: it opens Community Support.
+    await call('ui.prefs', { show_donate_button: false });
     // The daily "new SolidCraft 3000 is ready" popup takes the first click: spend it on empty space.
     await call('ui.click', { x: 800, y: 720 });
     await page.waitForTimeout(1500);
