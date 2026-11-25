@@ -40,10 +40,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # SolidCraft releases not to build: their web app is a blank page. 0.48.0 and 0.48.1 panic on
-  # std::time::Instant in wasm (https://github.com/tangency-labs/solidcraft/issues/21584). The
-  # newest release not listed here is built instead. Remove a tag once a fixed release ships.
-  HELD_RELEASES: "v0.48.0 v0.48.1"
+  # SolidCraft releases not to build, space-separated tags, for a release whose web app is broken
+  # (as 0.48.0 and 0.48.1 were: a blank page, https://github.com/tangency-labs/solidcraft/issues/21584,
+  # fixed in 0.49.0). The newest release not listed here is built instead. Empty: build the newest.
+  HELD_RELEASES: ""
   TRUNK_VERSION: v0.21.14
 
 jobs:
