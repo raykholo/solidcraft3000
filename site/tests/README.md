@@ -17,6 +17,7 @@ bar's Discord pill, checks that the in-page Community Support chat opened (its i
 screen), types two messages and waits for the bots, then clicks the maintenance banner's Dismiss with the chat still
 open (the chat sits below the banner, so the click reaches it). From the click on, every network API (fetch, XHR, sendBeacon,
 WebSocket, EventSource) and `window.open` throws and is counted, and a browser route aborts and counts any request. It
-fails unless all of them are zero and the page loaded nothing from outside its own site. It drives the app through
+fails unless all of them are zero and the page loaded nothing from outside its own site. Last, it clicks the parody line's link and checks that it asked to open SolidCraft's own Discord
+(https://discord.gg/FtU4NQNVDH) and nothing else. It drives the app through
 its control API, so it needs no OCR. Screenshots and `support-audit.json` go to the evidence directory; the workflow
 uploads them as the `support-evidence` artifact.

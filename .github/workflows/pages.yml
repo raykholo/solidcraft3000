@@ -40,10 +40,10 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # SolidCraft releases not to build: their web app is a blank page. 0.48.0 and 0.48.1 panic on
-  # std::time::Instant in wasm (https://github.com/tangency-labs/solidcraft/issues/21584). The
-  # newest release not listed here is built instead. Remove a tag once a fixed release ships.
-  HELD_RELEASES: "v0.48.0 v0.48.1"
+  # SolidCraft releases not to build, space-separated tags, for a release whose web app is broken
+  # (as 0.48.0 and 0.48.1 were: a blank page, https://github.com/tangency-labs/solidcraft/issues/21584,
+  # fixed in 0.49.0). The newest release not listed here is built instead. Empty: build the newest.
+  HELD_RELEASES: ""
   TRUNK_VERSION: v0.21.14
 
 jobs:
@@ -125,6 +125,18 @@ jobs:
           mkdir -p "$HOME/.local/bin"
           curl -sSL "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" | tar -xz -C "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # The release wasm build peaks late (link and wasm-opt); twice the hosted runner was lost there
+      # ("lost communication with the server"), the sign of a starved machine. More swap gives it room.
+      - name: Give the runner 16 GB of swap
+        if: steps.release.outputs.skip != 'true'
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 16G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
       - name: Build the web app with SolidCraft 3000 on
         if: steps.release.outputs.skip != 'true'
         working-directory: apps/solidcraft-web
