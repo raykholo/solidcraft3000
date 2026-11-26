@@ -169,6 +169,26 @@ jobs:
           server=$!
           npm run support -- http://127.0.0.1:8765/ "$RUNNER_TEMP/support-evidence"
           kill "$server"
+      # The Cloud Account works, nothing leaves the page and the design is untouched (EN and DE). The timed
+      # pages (sign-out, reset, recovery) are the app's unit tests; inspect runs also reach them, for review.
+      - name: Cloud Account works and nothing leaves the page (EN and DE)
+        if: steps.release.outputs.skip != 'true'
+        working-directory: site-repo/site/tests
+        run: |
+          python3 -m http.server 8765 --directory "$GITHUB_WORKSPACE/dist/web" > /dev/null 2>&1 &
+          server=$!
+          if [ "${{ github.event_name }}" = workflow_dispatch ] && [ "${{ inputs.deploy }}" = false ]; then
+            npm run account -- http://127.0.0.1:8765/ "$RUNNER_TEMP/account-evidence"
+          else
+            npm run account -- http://127.0.0.1:8765/ "$RUNNER_TEMP/account-evidence" --quick
+          fi
+          kill "$server"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.release.outputs.skip != 'true'
+        with:
+          name: account-evidence
+          path: ${{ runner.temp }}/account-evidence
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always() && steps.release.outputs.skip != 'true'
         with:
