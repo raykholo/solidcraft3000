@@ -131,6 +131,10 @@ async function session(locale) {
           await page.clock.fastForward(1000);
           if (s % 30 === 29 && await shown(until)) return true;
           if (await shown('sc3000_account:nag:dismiss')) await call('ui.key', { key: 'Escape' }).catch(() => {});
+          // Cumulo and the update notice (later builds) come by in this much time: send them away.
+          for (const away of ['sc3000_updates:later', 'sc3000_helper:not_now']) {
+            if (await shown(away)) await click(away).catch(() => {});
+          }
         }
         return shown(until);
       };

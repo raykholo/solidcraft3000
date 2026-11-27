@@ -65,6 +65,10 @@ async function session(locale) {
       return false;
     };
     const click = async handle => {
+      // Cumulo and the update notice (later builds) may come by during a slow run: send them away first.
+      for (const away of ['sc3000_updates:later', 'sc3000_helper:not_now']) {
+        if (away !== handle && await shown(away)) await click(away);
+      }
       const point = await call('ui.at', { handle });
       const [x, y] = Array.isArray(point) ? point : JSON.parse(point);
       await call('ui.move', { x, y });

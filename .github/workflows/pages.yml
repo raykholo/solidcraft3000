@@ -179,6 +179,16 @@ jobs:
           server=$!
           npm run credits -- http://127.0.0.1:8765/ "$RUNNER_TEMP/credits-evidence"
           kill "$server"
+      # Cumulo and the insistent updates: every level shows, Later always closes it, nothing is installed or sent
+      # and the design is untouched (EN and DE). About 40 minutes of fake-clock use, so inspect runs only.
+      - name: Cumulo and the updates never block and nothing leaves the page (EN and DE)
+        if: steps.release.outputs.skip != 'true' && github.event_name == 'workflow_dispatch' && inputs.deploy == false
+        working-directory: site-repo/site/tests
+        run: |
+          python3 -m http.server 8765 --directory "$GITHUB_WORKSPACE/dist/web" > /dev/null 2>&1 &
+          server=$!
+          npm run helper -- http://127.0.0.1:8765/ "$RUNNER_TEMP/helper-evidence"
+          kill "$server"
       # The Cloud Account works, nothing leaves the page and the design is untouched (EN and DE). The timed
       # pages (sign-out, reset, recovery) are the app's unit tests; inspect runs also reach them, for review.
       - name: Cloud Account works and nothing leaves the page (EN and DE)
@@ -193,6 +203,12 @@ jobs:
             npm run account -- http://127.0.0.1:8765/ "$RUNNER_TEMP/account-evidence" --quick
           fi
           kill "$server"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.release.outputs.skip != 'true'
+        with:
+          name: helper-evidence
+          path: ${{ runner.temp }}/helper-evidence
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always() && steps.release.outputs.skip != 'true'
         with:
