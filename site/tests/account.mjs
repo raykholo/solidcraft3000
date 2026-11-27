@@ -87,6 +87,10 @@ async function session(locale) {
         if (await shown(handle)) await click(handle);
         if (await waitFor(expected)) return true;
       }
+      // For the evidence: what was on screen when the page did not open.
+      const handles = await call('ui.handles', { prefix: '' }).catch(error => String(error));
+      writeFileSync(resolve(directory, `account-${locale}-missed-${expected.replace(/[^a-z_]/gi, '-')}.json`), JSON.stringify({ clicked: handle, expected, handles }, null, 2));
+      await page.screenshot({ path: resolve(directory, `account-${locale}-missed-${expected.replace(/[^a-z_]/gi, '-')}.png`) }).catch(() => {});
       return false;
     };
     const shot = async name => { await page.screenshot({ path: resolve(directory, `account-${locale}-${name}.png`) }); steps.push(name); };
