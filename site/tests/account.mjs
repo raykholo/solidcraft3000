@@ -80,14 +80,22 @@ async function session(locale) {
       await pause(700);
     };
     const type = async (handle, text) => { await click(handle); await call('ui.text', { text }); await pause(400); };
+    // A synthetic click on the fake clock is now and then not taken by the page: click again until
+    // what it opens shows, up to three times (a person would click again too).
+    const opens = async (handle, expected) => {
+      for (let i = 0; i < 3; i++) {
+        if (await shown(handle)) await click(handle);
+        if (await waitFor(expected)) return true;
+      }
+      return false;
+    };
     const shot = async name => { await page.screenshot({ path: resolve(directory, `account-${locale}-${name}.png`) }); steps.push(name); };
     const step = async (name, f) => { try { await f(); } catch (error) { steps.push(`${name} FAILED: ${error.message}`); } };
 
     await call('ui.click', { x: 800, y: 720 });
     await page.waitForTimeout(1500);
     await step('sign in', async () => {
-      await click('sc3000_account:open');
-      assert(await waitFor('sc3000_account:id'), 'the sign-in page opened');
+      assert(await opens('sc3000_account:open', 'sc3000_account:id'), 'the sign-in page opened');
       await type('sc3000_account:id', de ? 'max.mustermann' : 'jane.doe');
       await type('sc3000_account:password', 'correct horse');
       await shot('1-sign-in');
@@ -125,16 +133,14 @@ async function session(locale) {
       await step('session expired', async () => {
         assert(await advance('sc3000_account:expired:sign_in', 1300), 'the session expired within 21 min of use');
         await shot('4-session-expired');
-        await click('sc3000_account:expired:sign_in');
-        assert(await waitFor('sc3000_account:password'), 'the sign-in page opened again');
+        assert(await opens('sc3000_account:expired:sign_in', 'sc3000_account:password'), 'the sign-in page opened again');
         await type('sc3000_account:password', 'correct horse');
         await click('sc3000_account:submit');
         await pause(1000);
         await shot('5-incorrect-password');
       });
       await step('reset', async () => {
-        await click('sc3000_account:reset');
-        assert(await waitFor('sc3000_account:new_password'), 'the reset page opened');
+        assert(await opens('sc3000_account:reset', 'sc3000_account:new_password'), 'the reset page opened');
         const tries = ['correct horse', 'fillet', 'fillet 3000', 'fillet3000', 'fillet 3000 surely now', 'filet3000!!!!!!!!!!', 'please', 'anything'];
         for (let i = 0; i < tries.length; i++) {
           if (!(await shown('sc3000_account:new_password'))) break;

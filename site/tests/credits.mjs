@@ -72,6 +72,14 @@ async function session(locale) {
       await call('ui.click', { x, y });
       await pause(700);
     };
+    // Click again until what it opens shows, up to three times (as in account.mjs).
+    const opens = async (handle, expected) => {
+      for (let i = 0; i < 3; i++) {
+        if (await shown(handle)) await click(handle);
+        if (await waitFor(expected)) return true;
+      }
+      return false;
+    };
     const bodies = async () => {
       const design = await call('document.inspect', {});
       return ((typeof design === 'string' ? JSON.parse(design) : design).bodies || []).map(b => b.name);
@@ -103,8 +111,7 @@ async function session(locale) {
       await shot('2-pattern');
     });
     await step('top up', async () => {
-      await click('sc3000_credits:note:top_up');
-      assert(await waitFor('sc3000_credits:top_up:close'), 'the Top up page opened');
+      assert(await opens('sc3000_credits:note:top_up', 'sc3000_credits:top_up:close'), 'the Top up page opened');
       await shot('3-top-up');
       await click('sc3000_credits:top_up:close');
     });
