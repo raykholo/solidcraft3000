@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "phone": "node phone.mjs",
-    "support": "node support.mjs"
+    "support": "node support.mjs",
+    "account": "node account.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
