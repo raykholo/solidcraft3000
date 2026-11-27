@@ -122,6 +122,21 @@ async function session(locale) {
       await call('ui.text', { text: de ? 'Brass' : 'Brass' });
       await pause(800);
       assert(await waitFor('sc3000_credits:pack:Brass - Polished'), 'the Brass swatch has its PRO tag');
+      // The library sits below the dialog's other rows: wheel the dialog down until the tagged swatch is in view.
+      let sign = -1, before = null;
+      for (let i = 0; i < 16; i++) {
+        const at = await call('ui.at', { handle: 'sc3000_credits:pack:Brass - Polished' });
+        const [x, y] = Array.isArray(at) ? at : JSON.parse(at);
+        if (y > 260 && y < 820) break;
+        const off = Math.abs(y - 540);
+        if (before !== null && off > before) sign = -sign; // the wheel went the wrong way: turn it round
+        before = off;
+        await call('ui.move', { x, y: 600 });
+        await call('ui.scroll', { x, y: 600, delta: sign * (y >= 820 ? 2 : -2) });
+        await pause(400);
+      }
+      const [, seen] = await call('ui.at', { handle: 'sc3000_credits:pack:Brass - Polished' }).then(p => (Array.isArray(p) ? p : JSON.parse(p)));
+      assert(seen > 260 && seen < 820, `the tagged swatch is in view for the screenshot (y ${seen})`);
       await shot('4-appearance-pack');
       await call('ui.key', { key: 'Escape' });
       await pause(500);
