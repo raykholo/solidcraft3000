@@ -113,6 +113,17 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         if: steps.release.outputs.skip != 'true'
+      # Before the tests: building the UI tests alone can starve the runner of memory.
+      - name: Give the runner 16 GB of swap
+        if: steps.release.outputs.skip != 'true'
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 16G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
       - name: Test SolidCraft 3000 with the feature enabled
         if: steps.release.outputs.skip != 'true'
         run: |
@@ -127,16 +138,6 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       # The release wasm build peaks late (link and wasm-opt); twice the hosted runner was lost there
       # ("lost communication with the server"), the sign of a starved machine. More swap gives it room.
-      - name: Give the runner 16 GB of swap
-        if: steps.release.outputs.skip != 'true'
-        run: |
-          sudo swapoff -a
-          sudo rm -f /swapfile /mnt/swapfile
-          sudo fallocate -l 16G /mnt/swapfile
-          sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-          free -h
       - name: Build the web app with SolidCraft 3000 on
         if: steps.release.outputs.skip != 'true'
         working-directory: apps/solidcraft-web
