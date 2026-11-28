@@ -78,7 +78,19 @@ async function session(locale) {
       const design = await call('document.inspect', {});
       return ((typeof design === 'string' ? JSON.parse(design) : design).bodies || []).map(b => b.name);
     };
-    const shot = async name => { await page.screenshot({ path: resolve(directory, `helper-${locale}-${name}.png`) }); steps.push(name); };
+    // On the fake clock the page draws a frame only as the clock moves, and Cumulo keeps asking for frames
+    // while it floats: run the clock in small steps until the screenshot is taken.
+    const shot = async name => {
+      const path = resolve(directory, `helper-${locale}-${name}.png`);
+      if (!faked) await page.screenshot({ path });
+      else {
+        let taken = false;
+        const taking = page.screenshot({ path }).finally(() => { taken = true; });
+        while (!taken) await page.clock.runFor(50);
+        await taking;
+      }
+      steps.push(name);
+    };
     const step = async (name, f) => { try { await f(); } catch (error) { steps.push(`${name} FAILED: ${error.message}`); } };
 
     await call('ui.click', { x: 800, y: 720 });
