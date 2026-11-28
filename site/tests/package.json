@@ -5,7 +5,8 @@
   "scripts": {
     "phone": "node phone.mjs",
     "support": "node support.mjs",
-    "account": "node account.mjs"
+    "account": "node account.mjs",
+    "credits": "node credits.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.65.1",
