@@ -139,16 +139,27 @@ async function session(locale) {
       await click('sc3000_credits:note:ok');
     });
     await step('account balance', async () => {
-      await click('sc3000_account:open');
+      // Click until the account page or its sign-in form shows, up to three times: a click can be lost on CI.
+      const either = async () => (await shown('sc3000_account:id')) || (await shown('sc3000_credits:balance'));
+      let open = false;
+      for (let i = 0; i < 3 && !open; i++) {
+        if (await shown('sc3000_account:open')) await click('sc3000_account:open');
+        for (let j = 0; j < 20 && !open; j++) { open = await either(); if (!open) await pause(500); }
+      }
+      assert(open, 'the account page or its sign-in form opened');
       if (await shown('sc3000_account:id')) {
         await click('sc3000_account:id');
         await call('ui.text', { text: de ? 'max.mustermann' : 'jane.doe' });
         await click('sc3000_account:password');
         await call('ui.text', { text: 'correct horse' });
         await click('sc3000_account:submit');
-        await click('sc3000_account:open');
+        await pause(1000);
+        if (!(await shown('sc3000_credits:balance'))) await opens('sc3000_account:open', 'sc3000_credits:balance');
       }
-      assert(await waitFor('sc3000_credits:balance'), 'the account page shows the balance');
+      if (!(await waitFor('sc3000_credits:balance'))) {
+        await page.screenshot({ path: resolve(directory, `credits-${locale}-missed-balance.png`) });
+        throw new Error('the account page shows the balance');
+      }
       await shot('6-account-balance');
       await click('sc3000_account:close');
     });
